@@ -1,0 +1,75 @@
+#ifndef SPMC_OPS_TD_
+#define SPMC_OPS_TD_
+
+include "SpmcDialect.td"
+include "SpmcTypes.td"
+
+include "mlir/IR/OpBase.td"
+include "mlir/IR/BuiltinAttributes.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
+
+// Inherits from base Op class in OpBase.td. Provides:
+//  * Parent dialect of the operation
+//  * Mnemonic for the operation (name w/o dialect prefix)
+//  * A list of traits for the operation
+class Spmc_Op<string mnemonic, list<Trait> traits = []> : Op<Spmc_Dialect, mnemonic, traits>;
+
+def CreateOp : Spmc_Op<"create", [Pure, DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+    let summary = "create queue";
+    let description = [{
+        Create operation instantiates a queue (ring buffer) with a fixed capacity and element type,
+        both attached to the operation as attributes. For example:
+
+        ```mlir
+        %q = spmc.create : !spmc.queue<element = i32, capacity = 16>;
+        ```
+    }];
+
+    let arguments = (ins
+        TypeAttr:$element,
+        UI32Attr:$capacity
+    );
+    let results = (outs QueueType:$result);
+}
+
+def PushOp : Spmc_Op<"push_back"> {
+    let summary = "push";
+    let description = [{
+        Push_back operation pushes a value of type T onto the back of a queue with element type T.
+        It returns true when the operation is successful (i.e. when the queue was not full at time
+        of push), and false otherwise. For example:
+
+        ```mlir
+        %rc = spmc.push_back %q, %val : !spmc.queue<i32, 16> -> i1
+        ```
+    }];
+
+    let arguments = (ins
+        QueueType:$queue,
+        AnyType:$value
+    );
+    let results = (outs I1:$success);
+
+    let assemblyFormat = "$queue `,` $value attr-dict `:` `(` type($queue) `,` type($value) `)` `->` type($success)";
+}
+
+def PopOp : Spmc_Op<"pop_front", [DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+    let summary = "pop";
+    let description = [{
+        Pop_front operation pops a value of type T from the front of a queue with element type T
+        in a thread-safe manner. This can be called by multiple consumers to remove value from the queue,
+        when the queue size is greater than zero. For example:
+
+        ```mlir
+        spmc.pop_front %q : !spmc.queue<i32, 16> -> i32
+        ```
+    }];
+
+    let arguments = (ins QueueType:$queue);
+    let results = (outs I1:$success, AnyType:$value);
+
+    let assemblyFormat = "$queue attr-dict `:` type($queue) `->` `(` type($success) `,` type($value) `)`";
+}
+
+#endif // SPMC_OPS_TD_

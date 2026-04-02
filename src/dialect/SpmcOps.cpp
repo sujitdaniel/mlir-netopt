@@ -27,6 +27,28 @@ llvm::LogicalResult CreateOp::inferReturnTypes(
   return success();
 }
 
+llvm::LogicalResult PushOp::verify() {
+  QueueType qType = llvm::dyn_cast<QueueType>(getQueue().getType());
+  if (!qType) {
+    return emitOpError("expected queue type for first operand");
+  }
+  Type elementType = qType.getElement();
+  Type valueType = getValue().getType();
+
+  if (valueType != elementType) {
+    std::string valueTypeStr;
+    std::string elementTypeStr;
+    llvm::raw_string_ostream valueOs(valueTypeStr);
+    llvm::raw_string_ostream elementOs(elementTypeStr);
+    valueType.print(valueOs);
+    elementType.print(elementOs);
+    return emitOpError() << "value type " << valueTypeStr
+                         << " does not match queue element type "
+                         << elementTypeStr;
+  }
+  return success();
+}
+
 llvm::LogicalResult
 PopOp::inferReturnTypes(MLIRContext *context, std::optional<Location> location,
                         ValueRange operands, DictionaryAttr attributes,
@@ -40,6 +62,30 @@ PopOp::inferReturnTypes(MLIRContext *context, std::optional<Location> location,
     return emitOptionalError(location, "Expected queue operand");
   inferredReturnTypes.emplace_back(IntegerType::get(context, 1));
   inferredReturnTypes.emplace_back(qType.getElement());
+  return success();
+}
+
+llvm::LogicalResult PopOp::verify() {
+  QueueType qType = llvm::dyn_cast<spmc::QueueType>(getQueue().getType());
+  if (!qType) {
+    return emitOpError("expected queue type for operand");
+  }
+
+  Type elementType = qType.getElement();
+  Type valueType = getValue().getType();
+
+  if (elementType != valueType) {
+    std::string valueTypeStr;
+    std::string elementTypeStr;
+    llvm::raw_string_ostream valueOs(valueTypeStr);
+    llvm::raw_string_ostream elementOs(elementTypeStr);
+    valueType.print(valueOs);
+    elementType.print(elementOs);
+    return emitOpError() << "value type " << valueTypeStr
+                         << " does not match queue element type "
+                         << elementTypeStr;
+  }
+
   return success();
 }
 

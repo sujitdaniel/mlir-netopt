@@ -52,6 +52,9 @@ def PushOp : Spmc_Op<"push_back"> {
     let results = (outs I1:$success);
 
     let assemblyFormat = "$queue `,` $value attr-dict `:` `(` type($queue) `,` type($value) `)` `->` type($success)";
+
+    // verifies that $value shares the same type as $queue .element
+    let hasVerifier = 1;
 }
 
 def PopOp : Spmc_Op<"pop_front", [DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
@@ -70,6 +73,9 @@ def PopOp : Spmc_Op<"pop_front", [DeclareOpInterfaceMethods<InferTypeOpInterface
     let results = (outs I1:$success, AnyType:$value);
 
     let assemblyFormat = "$queue attr-dict `:` type($queue) `->` `(` type($success) `,` type($value) `)`";
+
+    // verifies that $value shares the same type as $queue .element
+    let hasVerifier = 1;
 }
 
 #endif // SPMC_OPS_TD_

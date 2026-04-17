@@ -16,6 +16,10 @@ target_link_libraries(
         ${dialect_libs}
         ${conversion_libs}
         MLIRSpmc
+        MLIRAffineDialect
+        MLIRAffineAnalysis
+        MLIRAffineUtils
+        MLIRAnalysis
         MLIRIR
         MLIRParser
         MLIRPass

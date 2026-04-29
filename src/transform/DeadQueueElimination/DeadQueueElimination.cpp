@@ -22,6 +22,35 @@ namespace spmc {
 #define GEN_PASS_DEF_DEADQUEUEELIMINATION
 #include "src/transform/DeadQueueElimination/Passes.h.inc"
 
+static bool hasPopUses(Value queue) {
+  return std::any_of(
+      queue.getUses().begin(), queue.getUses().end(),
+      [](OpOperand &use) { return isa<spmc::PopOp>(use.getOwner()); });
+}
+
+/// Check if a queue is returned from a function or passed to a function
+static bool doesQueueEscape(Value queue) {
+  return std::any_of(
+      queue.getUses().begin(), queue.getUses().end(), [](OpOperand &use) {
+        Operation *user = use.getOwner();
+        return llvm::isa<func::ReturnOp>(user) || llvm::isa<func::CallOp>(user);
+      });
+}
+
+static bool isWriteOnlyQueue(Value queue) {
+  unsigned pushCount = 0;
+  unsigned popCount = 0;
+
+  for (auto &use : queue.getUses()) {
+    if (llvm::isa<spmc::PushOp>(use.getOwner())) {
+      pushCount++;
+    } else if (llvm::isa<spmc::PopOp>(use.getOwner())) {
+      popCount++;
+    }
+  }
+  return pushCount > 0 && popCount == 0 && !doesQueueEscape(queue);
+}
+
 struct RemoveDeadQueuePattern : public OpRewritePattern<spmc::CreateOp> {
   RemoveDeadQueuePattern(MLIRContext *context)
       : OpRewritePattern<spmc::CreateOp>(context) {};
@@ -32,6 +61,25 @@ struct RemoveDeadQueuePattern : public OpRewritePattern<spmc::CreateOp> {
 
     if (!queueResult.hasNUsesOrMore(1)) {
       LLVM_DEBUG(llvm::dbgs() << "Eliminating unused queue\n");
+      rewriter.eraseOp(op);
+      return llvm::success();
+    }
+
+    if (isWriteOnlyQueue(queueResult)) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Eliminating write-only queue and its push operations\n");
+
+      // Collect all push operations on this queue
+      SmallVector<spmc::PushOp> pushOps;
+      for (const OpOperand &use : queueResult.getUses()) {
+        if (const spmc::PushOp pushOp =
+                llvm::dyn_cast<spmc::PushOp>(use.getOwner())) {
+          pushOps.emplace_back(pushOp);
+        }
+      }
+
+      std::for_each(pushOps.begin(), pushOps.end(),
+                    [&](const spmc::PushOp &op) { rewriter.eraseOp(op); });
       rewriter.eraseOp(op);
       return llvm::success();
     }

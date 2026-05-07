@@ -22,6 +22,7 @@ def QueueType : Spmc_Type<"Queue", "queue"> {
 
     // Example output: !spmc.queue<i32,16>
     let assemblyFormat = "`<` $element `,` $capacity `>`";
+    let genVerifyDecl = 1;
     let genMnemonicAlias = 1;
 }
 

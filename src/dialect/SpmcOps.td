@@ -31,6 +31,8 @@ def CreateOp : Spmc_Op<"create", [Pure, DeclareOpInterfaceMethods<InferTypeOpInt
         UI32Attr:$capacity
     );
     let results = (outs QueueType:$result);
+
+    let hasVerifier = 1;
 }
 
 def PushOp : Spmc_Op<"push_back"> {

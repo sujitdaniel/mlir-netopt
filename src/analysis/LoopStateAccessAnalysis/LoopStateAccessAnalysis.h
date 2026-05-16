@@ -11,6 +11,8 @@ namespace spmc {
 
 struct LoopAccessInfo {
   bool hasSpmc = false;
+  bool hasIterArgs = false;
+  bool hasUnknownSideEffects = false;
   bool isParallelizable = false;
 
   llvm::SmallVector<const Operation *, 4> blockingOps;
@@ -27,6 +29,8 @@ public:
 private:
   void analyzeLoop(affine::AffineForOp);
   void checkSpmcOps(affine::AffineForOp forOp, LoopAccessInfo &info);
+  void checkIterArgs(affine::AffineForOp forOp, LoopAccessInfo &info);
+  void checkUnknownSideEffects(affine::AffineForOp forOp, LoopAccessInfo &info);
 
   llvm::DenseMap<Operation *, LoopAccessInfo> loopInfoMap;
 };

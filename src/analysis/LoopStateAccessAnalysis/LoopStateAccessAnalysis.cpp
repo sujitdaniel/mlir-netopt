@@ -3,6 +3,7 @@
 #include "src/dialect/SpmcOps.h"
 
 #include <mlir/Dialect/Affine/IR/AffineOps.h>
+#include <mlir/Interfaces/SideEffectInterfaces.h>
 #include <optional>
 
 namespace mlir {
@@ -16,8 +17,11 @@ void LoopStateAccessAnalysis::analyzeLoop(affine::AffineForOp forOp) {
   LoopAccessInfo info;
 
   checkSpmcOps(forOp, info);
+  checkIterArgs(forOp, info);
+  checkUnknownSideEffects(forOp, info);
 
-  info.isParallelizable = !info.hasSpmc;
+  info.isParallelizable =
+      !info.hasSpmc && !info.hasIterArgs && !info.hasUnknownSideEffects;
 
   loopInfoMap.emplace_or_assign(forOp.getOperation(), std::move(info));
 }
@@ -29,6 +33,33 @@ void LoopStateAccessAnalysis::checkSpmcOps(affine::AffineForOp forOp,
       info.hasSpmc = true;
       info.blockingOps.push_back(op);
     }
+  });
+}
+
+void LoopStateAccessAnalysis::checkIterArgs(affine::AffineForOp forOp,
+                                            LoopAccessInfo &info) {
+  if (forOp.getNumIterOperands() > 0) {
+    info.hasIterArgs = true;
+  }
+}
+
+void LoopStateAccessAnalysis::checkUnknownSideEffects(affine::AffineForOp forOp,
+                                                      LoopAccessInfo &info) {
+  using namespace affine;
+  forOp.walk([&](Operation *op) {
+    if (op == forOp.getOperation()) {
+      return WalkResult::advance();
+    }
+    if (isa<AffineForOp, AffineYieldOp, AffineIfOp, AffineLoadOp,
+            AffineStoreOp>(op)) {
+      return WalkResult::advance();
+    }
+    if (isMemoryEffectFree(op)) {
+      return WalkResult::advance();
+    }
+    info.hasUnknownSideEffects = true;
+    info.blockingOps.push_back(op);
+    return WalkResult::advance();
   });
 }
 

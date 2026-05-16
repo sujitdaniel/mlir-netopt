@@ -74,3 +74,17 @@ func.func @spmc_pop_not_parallel(%q: !spmc.queue<i32, 16>,
     }
     return
 }
+
+// Test 6: Loop with iter_args (loop-carried accumulation)
+// CHECK-LABEL: @iter_args_not_parallel
+// CHECK: affine.for
+// CHECK-NOT: affine.parallel
+func.func @iter_args_not_parallel(%A: memref<1024xf32>) -> f32 {
+    %c0 = arith.constant 0.0 : f32
+    %sum = affine.for %i = 0 to 1024 iter_args(%acc = %c0) -> f32 {
+        %v = affine.load %A[%i] : memref<1024xf32>
+        %new_acc = arith.addf %acc, %v : f32
+        affine.yield %new_acc : f32
+    }
+    return %sum : f32
+}

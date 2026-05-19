@@ -13,6 +13,7 @@ struct LoopAccessInfo {
   bool hasSpmc = false;
   bool hasIterArgs = false;
   bool hasUnknownSideEffects = false;
+  bool hasMemoryConflicts = false;
   bool isParallelizable = false;
 
   llvm::SmallVector<const Operation *, 4> blockingOps;
@@ -31,6 +32,7 @@ private:
   void checkSpmcOps(affine::AffineForOp forOp, LoopAccessInfo &info);
   void checkIterArgs(affine::AffineForOp forOp, LoopAccessInfo &info);
   void checkUnknownSideEffects(affine::AffineForOp forOp, LoopAccessInfo &info);
+  void checkMemoryDependencies(affine::AffineForOp forOp, LoopAccessInfo &info);
 
   llvm::DenseMap<Operation *, LoopAccessInfo> loopInfoMap;
 };

@@ -2,6 +2,7 @@
 
 #include "src/dialect/SpmcOps.h"
 
+#include <mlir/Dialect/Affine/Analysis/AffineAnalysis.h>
 #include <mlir/Dialect/Affine/IR/AffineOps.h>
 #include <mlir/Interfaces/SideEffectInterfaces.h>
 #include <optional>
@@ -19,9 +20,11 @@ void LoopStateAccessAnalysis::analyzeLoop(affine::AffineForOp forOp) {
   checkSpmcOps(forOp, info);
   checkIterArgs(forOp, info);
   checkUnknownSideEffects(forOp, info);
+  checkMemoryDependencies(forOp, info);
 
-  info.isParallelizable =
-      !info.hasSpmc && !info.hasIterArgs && !info.hasUnknownSideEffects;
+  info.isParallelizable = !info.hasSpmc && !info.hasIterArgs &&
+                          !info.hasUnknownSideEffects &&
+                          !info.hasMemoryConflicts;
 
   loopInfoMap.emplace_or_assign(forOp.getOperation(), std::move(info));
 }
@@ -61,6 +64,16 @@ void LoopStateAccessAnalysis::checkUnknownSideEffects(affine::AffineForOp forOp,
     info.blockingOps.push_back(op);
     return WalkResult::advance();
   });
+}
+
+void LoopStateAccessAnalysis::checkMemoryDependencies(affine::AffineForOp forOp,
+                                                      LoopAccessInfo &info) {
+  if (info.hasSpmc || info.hasIterArgs || info.hasUnknownSideEffects) {
+    return;
+  }
+  if (!affine::isLoopMemoryParallel(forOp)) {
+    info.hasMemoryConflicts = true;
+  }
 }
 
 bool LoopStateAccessAnalysis::isParallelizable(

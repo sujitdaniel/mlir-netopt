@@ -88,3 +88,16 @@ func.func @iter_args_not_parallel(%A: memref<1024xf32>) -> f32 {
     }
     return %sum : f32
 }
+
+// Test 7: Loop writing to same memref element (all iterations write to index 0)
+// CHECK-LABEL: @same_element_write_not_parallel
+// CHECK: affine.for
+// CHECK-NOT: affine.parallel
+func.func @same_element_write_not_parallel(%A: memref<1024xf32>,
+                                            %out: memref<1xf32>) {
+    affine.for %i = 0 to 1024 {
+        %v = affine.load %A[%i] : memref<1024xf32>
+        affine.store %v, %out[0] : memref<1xf32>
+    }
+    return
+}

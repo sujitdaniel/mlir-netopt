@@ -1,7 +1,12 @@
 #include "spmc.h"
 
+#include <atomic>
+#include <chrono>
 #include <iostream>
+#include <optional>
+#include <string>
 #include <thread>
+#include <vector>
 
 using namespace cpp::parallel;
 

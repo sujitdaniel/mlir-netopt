@@ -1,4 +1,4 @@
-// RUN: /Volumes/workplace/mlir-netsec/build/bin/spmcc --dead-queue-elimination %s | FileCheck %s
+// RUN: spmcc --dead-queue-elimination %s | FileCheck %s
 
 // Test 1: Simple dead queue case - should be eliminated
 // CHECK-LABEL: @dead_queue_is_eliminated
@@ -8,11 +8,11 @@ func.func @dead_queue_is_eliminated() -> () {
     func.return
 }
 
-// Test 2: Queue with push - should be eliminated
-// CHECK-LABEL: @pushed_queue_is_not_eliminated
+// Test 2: Write-only queue (pushed, never popped) - should be eliminated
+// CHECK-LABEL: @pushed_queue_is_eliminated
 // CHECK-NOT: spmc.create
 // CHECK-NOT: spmc.push_back
-func.func @pushed_queue_is_not_eliminated(%val: i32) -> () {
+func.func @pushed_queue_is_eliminated(%val: i32) -> () {
     %q = "spmc.create"() {element=i32, capacity=16 : ui32} : () -> !spmc.queue<i32, 16>
     %rc = "spmc.push_back"(%q, %val) : (!spmc.queue<i32, 16>, i32) -> i1
 
@@ -64,7 +64,7 @@ func.func @queue_in_control_flow(%cond: i1) -> () {
         func.return
 }
 
-// Test 7: Multiple dead queues (q1, q2 dead; q3 live) - q1 and q2 should be eliminated
+// Test 7: Multiple dead queues (q1, q2 unused; q3 write-only) - all three should be eliminated
 // CHECK-LABEL: @multiple_dead_queues
 // CHECK-NOT: spmc.create
 // CHECK-NOT: spmc.create
@@ -92,3 +92,6 @@ func.func @queue_is_function_return() -> !spmc.queue<i32, 16> {
     %q = "spmc.create"() {element=i32, capacity=16 : ui32} : () -> !spmc.queue<i32, 16>
     func.return %q : !spmc.queue<i32, 16>
 }
+
+
+
